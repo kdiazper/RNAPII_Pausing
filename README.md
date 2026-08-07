@@ -59,10 +59,9 @@ BiocManager::install("GenomicRanges")
 
 For each 50 bp window $i$ of a gene of length $L$:
 
-$$	ext{Pausing Index (PI)} =rac{	ext{Reads RPM in Window } i / 50}{\left(	ext{Total Gene Reads RPM} - 	ext{Reads RPM in Window } i
-ight) / (L - 50)}$$
+Pausing Index (PI) = (Reads RPM in Window i)/50 / ((Total Gene Reads RPM - Reads RPM in Window i) / (L-50))
 
-* **TSS Region Flag**: Assigned as **`TSS`** if the window falls within the first 500 bp from the start of transcription ($TSS 	o TSS+500$ for `+` strand; $TSS-500 \gets TSS$ for `-` strand). Otherwise tagged as **`GB`** (Gene Body).
+* **TSS Region Flag**: Assigned as **`TSS`** if the window falls within the first 500 bp from the start of transcription ($TSS is TSS+500 for `+` strand; TSS-500 is TSS for `-` strand). Otherwise tagged as **`GB`** (Gene Body).
 * **Strand handling**: Separately evaluates `+` and `-` strand genes to maintain correct transcription orientation, coordinate indexing, and TSS region flagging.
 
 ---
