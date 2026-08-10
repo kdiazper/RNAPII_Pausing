@@ -1,13 +1,13 @@
 # RNA Polymerase II Pausing
-Repository for code of RNA Polymerase II pausing index calculation.
+
 
 # PRO-seq Pausing Index Calculator (`calculate_pausing_index.R`)
 
-A high-performance R script designed to compute the **Pausing Index (PI)** across 50 bp sliding/tiled windows across whole gene bodies for both **positive (+)** and **negative (-)** strand genes using PRO-seq (Precision Run-On Sequencing) bigWig files and BED annotations.
+Repository for R code designed to compute the **Pausing Index (PI)** across 50 bp sliding/tiled windows across whole gene bodies for both **positive (+)** and **negative (-)** strand genes using PRO-seq (Precision Run-On Sequencing) bigWig files and BED annotations.
 
 ---
 
-## 📌 Overview
+## Overview
 
 The **Pausing Index (PI)** measures RNA Polymerase II density in a specific genomic window relative to the rest of the gene body. This script divides genes into **50 bp non-overlapping/sliding windows** and calculates:
 1. **Window-level Read Depth** (RPM and estimated raw read counts).
@@ -17,22 +17,20 @@ The **Pausing Index (PI)** measures RNA Polymerase II density in a specific geno
 
 ---
 
-## 🛠️ Prerequisites & Dependencies
+## Prerequisites & Dependencies
 
 Ensure the following R packages are installed before running the script:
 
 ```R
 install.packages(c("purrr", "parallel", "dplyr"))
 
-# Install GenomicRanges / bigWigUtils from Bioconductor or source
+# Install GenomicRanges from Bioconductor or source
 if (!requireNamespace("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
 BiocManager::install("GenomicRanges")
-# bigWigUtils (custom/bioconductor package for bigWig operations)
 ```
 
 ### R Packages Required:
-* **`bigWigUtils`**: Reads strand-specific bigWig signal track files.
 * **`GenomicRanges` / `rtracklayer`**: Imports and manages genomic ranges/BED files.
 * **`parallel`**: Enables multi-core parallel processing (`mclapply`).
 * **`purrr`**: Fast data structure manipulation (`map_df`).
@@ -55,7 +53,7 @@ BiocManager::install("GenomicRanges")
 
 ---
 
-## 🧮 Pausing Index Formula & Calculation Methodology
+## Pausing Index Formula & Calculation Methodology
 
 For each 50 bp window $i$ of a gene of length $L$:
 
@@ -66,7 +64,7 @@ Pausing Index (PI) = (Reads RPM in Window i)/50 / ((Total Gene Reads RPM - Reads
 
 ---
 
-## 📤 Output File Specification
+## Output File Specification
 
 The script generates separate CSV files for each sample and strand:
 * Positive Strand Output: `<SampleID>_posstr_pauses_allwindows.csv`
@@ -90,7 +88,7 @@ The script generates separate CSV files for each sample and strand:
 
 ---
 
-## 🚀 How to Run
+## How to Run
 
 1. Edit the script paths in `calculate_pausing_index.R`:
    ```R
