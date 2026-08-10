@@ -1,6 +1,3 @@
-# RNA Polymerase II Pausing
-
-
 # PRO-seq Pausing Index Calculator (`calculate_pausing_index.R`)
 
 Repository for R code designed to compute the **Pausing Index (PI)** across 50 bp sliding/tiled windows across whole gene bodies for both **positive (+)** and **negative (-)** strand genes using PRO-seq (Precision Run-On Sequencing) bigWig files and BED annotations.
