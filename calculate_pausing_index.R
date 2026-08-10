@@ -1,5 +1,4 @@
 # Calculate pausing index using 50 bp windows
-######################## Loop Over + Strand Genes ######################## 
 library(bigWigUtils)
 library(purrr)
 library(parallel)
@@ -7,16 +6,32 @@ library(dplyr)
 
 options(mc.cores=60)
 
-#Read bed file and FPKM GRanges object
-genes <- import("/path/to/gene_bed_file.bed")
-genes <- genes[which(strand(genes) == "+"),]
-
 # Function to extract raw read counts later
 one.read.rpm = function(bigwig.plus.file) {
   y = bw.read.depth.stranded(bigwig.plus.file,
                              GRanges("chr1:1-100000000"))[[1]]
   min(y[y>0])
 }
+
+# Function to read in stranded bigWig files
+bw.read.depth.stranded = function(bigwig.plus.file, region, abs.value = T) {
+  bigWigPlusFile = bigWigName
+  bigWigMinusFile = sub("\\.plus\\.bw$", ".minus.bw", bigWigPlusFile)
+  r = as.list(rep(NA, length(region)))
+  plus = (as.character(strand(region)) != "-")
+  r[plus] = bw.read.depth(bigWigPlusFile, region[plus])
+  r[!plus] = bw.read.depth(bigWigMinusFile, region[!plus])
+  if (abs.value) 
+    r = lapply(r, abs)
+  names(r) = names(region)
+  r
+}
+
+######################## Loop Over + Strand Genes ######################## 
+#Read bed file and FPKM GRanges object
+genes <- import("/path/to/gene_bed_file.bed")
+genes <- genes[which(strand(genes) == "+"),]
+
 
 # Load every sample information
 PROseq.bw.file = data.frame(Path = c(paste0("/path/to/bigWig_plus"),
@@ -156,30 +171,15 @@ for (sample_name in PROseq.bw.file$Sample) {
 
 
 ######################## Loop Over - Strand Genes ######################## 
-library(bigWigUtils)
-library(purrr)
-library(parallel)
-library(dplyr)
-
-options(mc.cores=60)
-
 #Read bed file and FPKM GRanges object
 genes <- import("/path/to/gene_bed_file.bed")
 genes <- genes[which(strand(genes) == "-"),]
-
-# Function to extract raw read counts later
-one.read.rpm = function(bigwig.plus.file) {
-  y = bw.read.depth.stranded(bigwig.plus.file,
-                             GRanges("chr1:1-100000000"))[[1]]
-  min(y[y>0])
-}
 
 # Load every sample information
 PROseq.bw.file = data.frame(Path = c(paste0("/path/to/bigWig_plus"),
                                     paste0("/path/to/bigWig_plus")),
                             Sample = c("SampleID_1","SampleID_2"))
 genelist <- list()
-
 
 write.genelist <- function(gene_name) {
   
