@@ -35,7 +35,7 @@ BiocManager::install("GenomicRanges")
 
 ---
 
-## 📥 Input Requirements
+## Input Requirements
 
 | Input Type | Description | File Format / Type | Example / Notes |
 | :--- | :--- | :--- | :--- |
