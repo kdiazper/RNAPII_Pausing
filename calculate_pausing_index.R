@@ -1,8 +1,11 @@
 # Calculate pausing index using 50 bp windows
-library(bigWigUtils)
+library(rtracklayer)
+library(GenomicRanges)
 library(purrr)
 library(parallel)
 library(dplyr)
+library(tidyr)
+options(dplyr.width = Inf)
 
 options(mc.cores=60)
 
@@ -13,9 +16,25 @@ one.read.rpm = function(bigwig.plus.file) {
   min(y[y>0])
 }
 
+# Function to obtain RLeList from bigWig files
+get.rle = function(rle, region){
+  r = as.list(rle[region])
+  i = (as.character(strand(region)) == "-")
+  r[i] = lapply(r[i], rev)
+  names(r) = names(region)
+  r
+}
+
+# Function to read bigWig files as RLeList
+bw.read.depth = function(bigWigName, region) {
+  bigWig = BigWigFile(bigWigName)
+  rle = suppressWarnings(import(bigWig, which = region, as = "RleList"))
+  get.rle(rle, region)
+}
+
 # Function to read in stranded bigWig files
 bw.read.depth.stranded = function(bigwig.plus.file, region, abs.value = T) {
-  bigWigPlusFile = bigWigName
+  bigWigPlusFile = bigwig.plus.file
   bigWigMinusFile = sub("\\.plus\\.bw$", ".minus.bw", bigWigPlusFile)
   r = as.list(rep(NA, length(region)))
   plus = (as.character(strand(region)) != "-")
@@ -31,11 +50,11 @@ bw.read.depth.stranded = function(bigwig.plus.file, region, abs.value = T) {
 #Read bed file and FPKM GRanges object
 genes <- import("/path/to/gene_bed_file.bed")
 genes <- genes[which(strand(genes) == "+"),]
+genes <- genes[width(genes) > 50]
 
-
-# Load every sample information
-PROseq.bw.file = data.frame(Path = c(paste0("/path/to/bigWig_plus"),
-                                    paste0("/path/to/bigWig_plus")),
+# Load every sample information - ensure matching .minus.bw files exist within the same directories as .plus.bw files
+PROseq.bw.file = data.frame(Path = c(paste0("/path/to/bigWig.plus.bw"),
+                                    paste0("/path/to/bigWig.plus.bw")),
                             Sample = c("SampleID_1","SampleID_2"))
 
 genelist <- list()
@@ -174,10 +193,11 @@ for (sample_name in PROseq.bw.file$Sample) {
 #Read bed file and FPKM GRanges object
 genes <- import("/path/to/gene_bed_file.bed")
 genes <- genes[which(strand(genes) == "-"),]
+genes <- genes[width(genes) > 50]
 
-# Load every sample information
-PROseq.bw.file = data.frame(Path = c(paste0("/path/to/bigWig_plus"),
-                                    paste0("/path/to/bigWig_plus")),
+#Load every sample information - ensure matching .minus.bw files exist within the same directories as .plus.bw files
+PROseq.bw.file = data.frame(Path = c(paste0("/path/to/bigWig.plus.bw"),
+                                    paste0("/path/to/bigWig.plus.bw")),
                             Sample = c("SampleID_1","SampleID_2"))
 genelist <- list()
 
@@ -311,4 +331,95 @@ for (sample_name in PROseq.bw.file$Sample) {
   
   write.csv(genelist_df, file = paste0("/path/to/",sample_name,"_negstr_pauses_allwindows.csv"), row.names = F)
 }
+
+
+######### Combine PI Windows #########
+input_dir  <- "/path/to/allwindows_csv_dir"
+output_dir <- "/path/to/output_dir"
+
+files <- list.files(path = input_dir, pattern = "_allwindows\\.csv$", full.names = TRUE)
+sites <- lapply(files, read.csv)
+print(paste0(Sys.time(), " Finished Reading All Files"))
+
+# Extract sample IDs from filenames
+sample_ids <- gsub("(_posstr|_negstr)_pauses_allwindows\\.csv$", "", basename(files))
+names(sites) <- sample_ids
+
+all_sites <- bind_rows(sites, .id = "Sample")
+print(paste0(Sys.time(), " Converted List to DF"))
+
+all_sites <- all_sites %>%
+  mutate(
+    pause_id  = paste(Chr, MaxReadCoord, Strand, sep = ":"),
+    window_id = paste(Chr, Start, End, Strand, sep = ":"),
+    PI_raw    = PI,
+    PI        = ifelse(is.na(PI), 0, pmin(PI, 1000)) # cap at 1000, set NA to 0
+  ) %>%
+  group_by(Gene.Name, window_id) %>%
+  mutate(
+    MeanPI           = mean(PI_raw, na.rm = TRUE),
+    MedianPI         = median(PI_raw, na.rm = TRUE),
+    Median_PI_Window = median(PI)
+  ) %>%
+  ungroup()
+
+print(paste0(Sys.time(), " Writing All Windows - ", nrow(all_sites), " rows total"))
+write.csv(all_sites, file = file.path(output_dir, "All_windows_sites.csv"), quote = FALSE, row.names = FALSE)
+
+
+######### Call Shared Pause Sites (PI >= 15 in >= 8 of 11 Individuals) ########
+min_samples <- 8 # Minimum number of individuals required
+
+# Promoter-proximal pauses
+tss_selected_windows <- all_sites %>%
+  filter(TSS.or.GB == "TSS", PI >= 15) %>%
+  group_by(Gene.Name, window_id) %>%
+  filter(n_distinct(Sample) >= min_samples) %>%
+  summarise(Median_PI_Window = first(Median_PI_Window), .groups = "drop") %>%
+  group_by(Gene.Name) %>%
+  slice_max(Median_PI_Window, n = 1, with_ties = FALSE) %>%
+  ungroup()
+
+# Retain data across all individuals for the selected promoter-proximal pause windows
+tss_shared_all <- all_sites %>%
+  semi_join(tss_selected_windows, by = c("Gene.Name", "window_id")) %>%
+  group_by(Sample, Gene.Name) %>%
+  mutate(Count_Pause_TSS = n()) %>%
+  ungroup()
+
+# Get GB pauses/windows
+gb_selected_windows <- all_sites %>%
+  filter(TSS.or.GB == "GB", PI >= 15) %>%
+  group_by(Gene.Name, window_id) %>%
+  filter(n_distinct(Sample) >= min_samples) %>%
+  summarise(.groups = "drop")
+
+# Retain data across all individuals for the selected gene body pause windows
+gb_shared_all <- all_sites %>%
+  semi_join(gb_selected_windows, by = c("Gene.Name", "window_id")) %>%
+  group_by(Sample, Gene.Name) %>%
+  mutate(Count_Pause_GB = n()) %>%
+  ungroup()
+
+# Combine TSS and GB pause calls
+tss_counts <- distinct(tss_shared_all, Sample, Gene.Name, Count_Pause_TSS)
+gb_counts  <- distinct(gb_shared_all, Sample, Gene.Name, Count_Pause_GB)
+
+all_sites_pi15 <- bind_rows(tss_shared_all, gb_shared_all) %>%
+  select(-any_of(c("Count_Pause_TSS", "Count_Pause_GB"))) %>%
+  left_join(tss_counts, by = c("Sample", "Gene.Name")) %>%
+  left_join(gb_counts,  by = c("Sample", "Gene.Name")) %>%
+  mutate(
+    Count_Pause_TSS = tidyr::replace_na(Count_Pause_TSS, 0L),
+    Count_Pause_GB  = tidyr::replace_na(Count_Pause_GB, 0L),
+    # Add small pseudocount (+1) so PI == 0 does not become -Inf on log10 scale
+    PI_log10        = log10(PI + 1)
+  )
+
+write.csv(
+  all_sites_pi15,
+  file = file.path(output_dir, "Windows_PI15PerSample_MaxTSSOnly_Shared.csv"),
+  quote = FALSE,
+  row.names = FALSE
+)
 
