@@ -4,7 +4,7 @@ A high-performance R pipeline designed to compute the **Pausing Index (PI)** acr
 
 ---
 
-## 📌 Overview
+## Overview
 
 The **Pausing Index (PI)** measures RNA Polymerase II density in a specific genomic window relative to the rest of the gene body. This script executes a two-stage workflow:
 
@@ -24,7 +24,7 @@ The **Pausing Index (PI)** measures RNA Polymerase II density in a specific geno
 
 ---
 
-## 🛠️ Prerequisites & Dependencies
+## Prerequisites & Dependencies
 
 The script is self-contained for bigWig reading and Rle extraction). Ensure the following standard CRAN and Bioconductor R packages are installed:
 
@@ -44,7 +44,7 @@ BiocManager::install(c("rtracklayer", "GenomicRanges"))
 
 ---
 
-## 📥 Input Requirements
+## Input Requirements
 
 | Input Type | Description | File Format / Type | Example / Notes |
 | :--- | :--- | :--- | :--- |
@@ -61,7 +61,7 @@ BiocManager::install(c("rtracklayer", "GenomicRanges"))
 
 ---
 
-## 🧮 Pausing Index Formula & Methodology
+## Pausing Index Formula & Methodology
 
 For each 50 bp window $i$ of a gene of length $L$ ($L > 50$):
 
@@ -73,9 +73,9 @@ $$\text{Pausing Index (PI)} = \frac{\text{Reads RPM in Window } i / 50}{\left(\t
 
 ---
 
-## 📤 Output File Specifications
+## Output File Specifications
 
-### 1. Per-Sample, Per-Strand Window Files (Stage 1)
+### Per-Sample, Per-Strand Window Files (Stage 1)
 * **Positive Strand Output**: `<SampleID>_posstr_pauses_allwindows.csv`
 * **Negative Strand Output**: `<SampleID>_negstr_pauses_allwindows.csv`
 
@@ -93,13 +93,13 @@ $$\text{Pausing Index (PI)} = \frac{\text{Reads RPM in Window } i / 50}{\left(\t
 | **`MaxReadCoord`** | `Integer` | Genomic coordinate corresponding to the peak signal within the window. |
 | **`TSS.or.GB`** | `String` | Classification tag: `TSS` (within $500\text{ nt}$ of TSS) or `GB` (Gene Body). |
 
-### 2. Combined & Filtered Cohort Files (Stage 2)
+### Combined & Filtered Cohort Files (Stage 2)
 * **`All_windows_sites.csv`**: All windows combined across samples and strands, including `Sample`, `pause_id` (`Chr:MaxReadCoord:Strand`), `window_id` (`Chr:Start:End:Strand`), `PI_raw`, capped `PI` ($\le 1000$), `MeanPI`, `MedianPI`, and `Median_PI_Window`.
 * **`Windows_PI15PerSample_MaxTSSOnly_Shared.csv`**: Final shared pause sites ($\text{PI} \ge 15$ in $\ge 8$ individuals; top median-PI promoter window per gene plus all shared gene body windows), including per-sample pause counts (`Count_Pause_TSS`, `Count_Pause_GB`) and `PI_log10`.
 
 ---
 
-## 🚀 How to Run
+## How to Run
 
 1. Update the configuration paths and sample definitions in `calculate_pausing_index.R`:
    ```R
